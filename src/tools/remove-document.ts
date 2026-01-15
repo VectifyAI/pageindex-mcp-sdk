@@ -22,9 +22,7 @@ export async function removeDocument(
   transport: McpTransport,
   params: RemoveDocumentParams,
 ): Promise<RemoveDocumentResult> {
-  const raw = await transport.callTool("remove_document", {
+  return transport.callTool<RemoveDocumentResult>("remove_document", {
     doc_names: params.docNames,
   });
-  const text = raw.content.find((c) => c.type === "text")?.text;
-  return JSON.parse(text!) as RemoveDocumentResult;
 }

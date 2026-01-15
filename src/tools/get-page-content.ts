@@ -28,11 +28,9 @@ export async function getPageContent(
   transport: McpTransport,
   params: GetPageContentParams,
 ): Promise<GetPageContentResult> {
-  const raw = await transport.callTool("get_page_content", {
+  return transport.callTool<GetPageContentResult>("get_page_content", {
     doc_name: params.docName,
     pages: params.pages,
     wait_for_completion: params.waitForCompletion,
   });
-  const text = raw.content.find((c) => c.type === "text")?.text;
-  return JSON.parse(text!) as GetPageContentResult;
 }

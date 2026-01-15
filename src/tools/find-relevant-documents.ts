@@ -29,12 +29,13 @@ export async function findRelevantDocuments(
   transport: McpTransport,
   params?: FindRelevantDocumentsParams,
 ): Promise<FindRelevantDocumentsResult> {
-  const raw = await transport.callTool("find_relevant_documents", {
-    name_or_description_filter: params?.nameOrDescriptionFilter,
-    folder_id: params?.folderId,
-    cursor: params?.cursor,
-    limit: params?.limit,
-  });
-  const text = raw.content.find((c) => c.type === "text")?.text;
-  return JSON.parse(text!) as FindRelevantDocumentsResult;
+  return transport.callTool<FindRelevantDocumentsResult>(
+    "find_relevant_documents",
+    {
+      name_or_description_filter: params?.nameOrDescriptionFilter,
+      folder_id: params?.folderId,
+      cursor: params?.cursor,
+      limit: params?.limit,
+    },
+  );
 }

@@ -18,10 +18,8 @@ export async function getSignedUploadUrl(
   transport: McpTransport,
   params: GetSignedUploadUrlParams,
 ): Promise<GetSignedUploadUrlResult> {
-  const raw = await transport.callTool("get_signed_upload_url", {
+  return transport.callTool<GetSignedUploadUrlResult>("get_signed_upload_url", {
     fileName: params.fileName,
     fileType: params.fileType,
   });
-  const text = raw.content.find((c) => c.type === "text")?.text;
-  return JSON.parse(text!) as GetSignedUploadUrlResult;
 }

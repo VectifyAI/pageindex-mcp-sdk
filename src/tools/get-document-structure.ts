@@ -18,11 +18,12 @@ export async function getDocumentStructure(
   transport: McpTransport,
   params: GetDocumentStructureParams,
 ): Promise<GetDocumentStructureResult> {
-  const raw = await transport.callTool("get_document_structure", {
-    doc_name: params.docName,
-    part: params.part,
-    wait_for_completion: params.waitForCompletion,
-  });
-  const text = raw.content.find((c) => c.type === "text")?.text;
-  return JSON.parse(text!) as GetDocumentStructureResult;
+  return transport.callTool<GetDocumentStructureResult>(
+    "get_document_structure",
+    {
+      doc_name: params.docName,
+      part: params.part,
+      wait_for_completion: params.waitForCompletion,
+    },
+  );
 }

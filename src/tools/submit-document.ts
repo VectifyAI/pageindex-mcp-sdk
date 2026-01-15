@@ -20,9 +20,7 @@ export async function submitDocument(
   transport: McpTransport,
   params: SubmitDocumentParams,
 ): Promise<SubmitDocumentResult> {
-  const raw = await transport.callTool("submit_document", {
+  return transport.callTool<SubmitDocumentResult>("submit_document", {
     file_name: params.fileName,
   });
-  const text = raw.content.find((c) => c.type === "text")?.text;
-  return JSON.parse(text!) as SubmitDocumentResult;
 }

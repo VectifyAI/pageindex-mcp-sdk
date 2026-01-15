@@ -22,7 +22,5 @@ export interface RecentDocumentsResult {
 export async function recentDocuments(
   transport: McpTransport,
 ): Promise<RecentDocumentsResult> {
-  const raw = await transport.callTool("recent_documents", {});
-  const text = raw.content.find((c) => c.type === "text")?.text;
-  return JSON.parse(text!) as RecentDocumentsResult;
+  return transport.callTool<RecentDocumentsResult>("recent_documents", {});
 }

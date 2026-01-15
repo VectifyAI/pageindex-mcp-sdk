@@ -2,6 +2,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import pkg from "../package.json" assert { type: "json" };
+import { PageIndexError, type PageIndexErrorCode } from "./errors.js";
 
 export class McpTransport {
   private client = new Client(
@@ -30,18 +31,36 @@ export class McpTransport {
     this.connected = true;
   }
 
-  async callTool(name: string, args: Record<string, unknown>) {
+  async callTool<T = unknown>(
+    name: string,
+    args: Record<string, unknown>,
+  ): Promise<T> {
     if (!this.connected) await this.connect();
+
     const r = (await this.client.callTool({
       name,
       arguments: args,
     })) as CallToolResult;
-    return {
-      content: r.content.map((c) => ({
-        type: c.type,
-        text: c.type === "text" ? c.text : undefined,
-      })),
-    };
+
+    const textContent = r.content.find((c) => c.type === "text");
+    const text = textContent?.type === "text" ? textContent.text : undefined;
+
+    if (!text) {
+      throw new PageIndexError("Empty response from server", "INTERNAL_ERROR");
+    }
+
+    const data = JSON.parse(text);
+
+    if (r.isError) {
+      const { error, errorCode, ...details } = data as {
+        error: string;
+        errorCode?: PageIndexErrorCode;
+        [key: string]: unknown;
+      };
+      throw new PageIndexError(error, errorCode, details);
+    }
+
+    return data as T;
   }
 
   async close(): Promise<void> {

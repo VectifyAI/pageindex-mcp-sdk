@@ -25,10 +25,8 @@ export async function getDocument(
   transport: McpTransport,
   params: GetDocumentParams,
 ): Promise<GetDocumentResult> {
-  const raw = await transport.callTool("get_document", {
+  return transport.callTool<GetDocumentResult>("get_document", {
     doc_name: params.docName,
     wait_for_completion: params.waitForCompletion,
   });
-  const text = raw.content.find((c) => c.type === "text")?.text;
-  return JSON.parse(text!) as GetDocumentResult;
 }

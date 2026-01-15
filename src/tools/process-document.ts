@@ -21,7 +21,7 @@ export async function processDocument(
   transport: McpTransport,
   params: ProcessDocumentParams,
 ): Promise<ProcessDocumentResult> {
-  const raw = await transport.callTool("process_document", { url: params.url });
-  const text = raw.content.find((c) => c.type === "text")?.text;
-  return JSON.parse(text!) as ProcessDocumentResult;
+  return transport.callTool<ProcessDocumentResult>("process_document", {
+    url: params.url,
+  });
 }
