@@ -1,7 +1,21 @@
 import { anthropic } from '@ai-sdk/anthropic';
-import { streamText, convertToModelMessages, type UIMessage } from 'ai';
+import { streamText, convertToModelMessages, stepCountIs, type UIMessage } from 'ai';
+import { PageIndexClient } from '@pageindex/sdk';
+import { buildPageIndexTools } from '@/lib/tools';
 
-export const maxDuration = 30;
+export const maxDuration = 60;
+
+// Singleton PageIndex client
+let pageIndexClient: PageIndexClient | null = null;
+function getPageIndexClient() {
+  if (!pageIndexClient) {
+    pageIndexClient = new PageIndexClient({
+      apiUrl: process.env.PAGEINDEX_API_URL!,
+      apiKey: process.env.PAGEINDEX_API_KEY!,
+    });
+  }
+  return pageIndexClient;
+}
 
 interface FilePart {
   type: 'file';
@@ -74,9 +88,18 @@ export async function POST(req: Request) {
 
   const normalizedMessages = messages.map(normalizeMessageFileParts);
 
+  // Initialize PageIndex client and tools
+  const client = getPageIndexClient();
+  if (!client.isConnected()) {
+    await client.connect();
+  }
+  const tools = buildPageIndexTools(client);
+
   const result = streamText({
     model: anthropic('claude-sonnet-4-20250514'),
     messages: await convertToModelMessages(normalizedMessages),
+    tools,
+    stopWhen: stepCountIs(10),
   });
 
   return result.toUIMessageStreamResponse();

@@ -8,6 +8,13 @@ import {
 } from '@/components/ai-elements/conversation';
 import { Message, MessageContent, MessageResponse } from '@/components/ai-elements/message';
 import {
+  Tool,
+  ToolHeader,
+  ToolContent,
+  ToolInput,
+  ToolOutput,
+} from '@/components/ai-elements/tool';
+import {
   PromptInput,
   PromptInputTextarea,
   PromptInputSubmit,
@@ -25,7 +32,7 @@ import { Shimmer } from '@/components/ai-elements/shimmer';
 import { DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useChat } from '@ai-sdk/react';
-import type { FileUIPart } from 'ai';
+import type { FileUIPart, ToolUIPart } from 'ai';
 import {
   CheckCircle2Icon,
   FileIcon,
@@ -57,6 +64,16 @@ function DocumentStatusIcon({ status }: { status: string }) {
     default:
       return <FileIcon className="size-4 text-muted-foreground" />;
   }
+}
+
+function isToolPart(part: unknown): part is ToolUIPart {
+  return (
+    !!part &&
+    typeof part === 'object' &&
+    'type' in part &&
+    typeof (part as { type: unknown }).type === 'string' &&
+    (part as { type: string }).type.startsWith('tool-')
+  );
 }
 
 export default function ChatPage() {
@@ -260,6 +277,19 @@ export default function ChatPage() {
                           <MessageResponse key={i}>{part.text}</MessageResponse>
                         );
                       }
+                      if (isToolPart(part)) {
+                        return (
+                          <Tool key={i} defaultOpen={false}>
+                            <ToolHeader type={part.type} state={part.state} />
+                            <ToolContent>
+                              <ToolInput input={part.input} />
+                              {(part.output || part.errorText) && (
+                                <ToolOutput output={part.output} errorText={part.errorText} />
+                              )}
+                            </ToolContent>
+                          </Tool>
+                        );
+                      }
                       return null;
                     })}
                   </MessageContent>
@@ -334,9 +364,9 @@ export default function ChatPage() {
                 </PromptInputActionMenuTrigger>
                 <PromptInputActionMenuContent className="w-64">
                   <PromptInputActionMenuItem
-                    onSelect={(e) => {
-                      e.preventDefault();
+                    onSelect={() => {
                       fileInputRef.current?.click();
+                      setDropdownOpen(false);
                     }}
                   >
                     <UploadIcon className="mr-2 size-4" />
@@ -362,9 +392,9 @@ export default function ChatPage() {
                       <PromptInputActionMenuItem
                         key={doc.id}
                         className="flex items-center justify-between"
-                        onSelect={(e) => {
-                          e.preventDefault();
+                        onSelect={() => {
                           toggleDocSelection(doc);
+                          setDropdownOpen(false);
                         }}
                       >
                         <span className={cn('truncate flex-1 mr-2', isSelected && 'font-medium')}>
