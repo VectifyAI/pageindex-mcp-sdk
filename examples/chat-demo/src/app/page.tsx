@@ -7,13 +7,7 @@ import {
   ConversationScrollButton,
 } from '@/components/ai-elements/conversation';
 import { Message, MessageContent, MessageResponse } from '@/components/ai-elements/message';
-import {
-  Tool,
-  ToolHeader,
-  ToolContent,
-  ToolInput,
-  ToolOutput,
-} from '@/components/ai-elements/tool';
+import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/components/ai-elements/tool';
 import {
   PromptInput,
   PromptInputTextarea,
@@ -29,7 +23,9 @@ import {
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input';
 import { Shimmer } from '@/components/ai-elements/shimmer';
+import { SettingsDialog, SettingsButton } from '@/components/settings-dialog';
 import { DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { SettingsProvider, useSettings } from '@/lib/settings';
 import { cn } from '@/lib/utils';
 import { useChat } from '@ai-sdk/react';
 import type { FileUIPart, ToolUIPart } from 'ai';
@@ -42,7 +38,7 @@ import {
   XCircleIcon,
   XIcon,
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 interface RecentDocument {
   id: string;
@@ -76,10 +72,14 @@ function isToolPart(part: unknown): part is ToolUIPart {
   );
 }
 
-export default function ChatPage() {
+function ChatContent() {
+  const { isConfigured, isLoaded, getHeaders } = useSettings();
   const [input, setInput] = useState('');
-  const { messages, sendMessage, status } = useChat();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const headers = useMemo(() => getHeaders(), [getHeaders]);
+  const { messages, sendMessage, status } = useChat();
 
   const [documents, setDocuments] = useState<RecentDocument[]>([]);
   const [selectedDocs, setSelectedDocs] = useState<RecentDocument[]>([]);
@@ -88,10 +88,17 @@ export default function ChatPage() {
   const [isSending, setIsSending] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
+  // Auto-open settings dialog when not configured
+  useEffect(() => {
+    if (isLoaded && !isConfigured) {
+      setSettingsOpen(true);
+    }
+  }, [isLoaded, isConfigured]);
+
   const fetchDocuments = useCallback(async () => {
     setIsLoadingDocs(true);
     try {
-      const res = await fetch('/api/documents');
+      const res = await fetch('/api/documents', { headers });
       if (res.ok) {
         const data = await res.json();
         setDocuments(data.docs || []);
@@ -101,19 +108,20 @@ export default function ChatPage() {
     } finally {
       setIsLoadingDocs(false);
     }
-  }, []);
+  }, [headers]);
 
   useEffect(() => {
-    if (dropdownOpen) {
+    if (dropdownOpen && isConfigured) {
       fetchDocuments();
     }
-  }, [dropdownOpen, fetchDocuments]);
+  }, [dropdownOpen, fetchDocuments, isConfigured]);
 
   const handleFileUpload = async (file: File) => {
     setIsUploading(true);
     try {
       const uploadUrlRes = await fetch(
         `/api/upload?fileName=${encodeURIComponent(file.name)}&fileType=${encodeURIComponent(file.type)}`,
+        { headers },
       );
       if (!uploadUrlRes.ok) {
         throw new Error('Failed to get upload URL');
@@ -131,7 +139,7 @@ export default function ChatPage() {
 
       const submitRes = await fetch('/api/upload', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({ fileName }),
       });
       if (!submitRes.ok) {
@@ -173,7 +181,7 @@ export default function ChatPage() {
     if (!userText) return;
 
     if (selectedDocs.length === 0) {
-      sendMessage({ text: userText });
+      sendMessage({ text: userText }, { headers });
       setInput('');
       return;
     }
@@ -183,7 +191,7 @@ export default function ChatPage() {
       const docNames = selectedDocs.map((d) => d.name);
       const res = await fetch('/api/documents/details', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({ docNames }),
       });
 
@@ -205,10 +213,7 @@ export default function ChatPage() {
         };
       });
 
-      sendMessage({
-        text: userText,
-        files: fileParts,
-      });
+      sendMessage({ text: userText, files: fileParts }, { headers });
       setInput('');
       setSelectedDocs([]);
     } catch (error) {
@@ -220,6 +225,8 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-screen flex-col bg-background">
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+
       <main className="relative flex-1 overflow-hidden">
         <Conversation className="absolute inset-0">
           <ConversationContent className="mx-auto max-w-4xl">
@@ -344,7 +351,8 @@ export default function ChatPage() {
             <PromptInputTextarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask anything..."
+              placeholder={isConfigured ? 'Ask anything...' : 'Configure settings to start...'}
+              disabled={!isConfigured}
               className="min-h-16 resize-none text-sm sm:text-base"
             />
           </PromptInputBody>
@@ -353,7 +361,7 @@ export default function ChatPage() {
             <PromptInputTools>
               <PromptInputActionMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
                 <PromptInputActionMenuTrigger
-                  disabled={isUploading}
+                  disabled={isUploading || !isConfigured}
                   className="ml-0.5 sm:ml-1 shrink-0 gap-1 rounded-full border border-border p-1 hover:bg-muted"
                 >
                   {isUploading ? (
@@ -410,14 +418,26 @@ export default function ChatPage() {
                 </PromptInputActionMenuContent>
               </PromptInputActionMenu>
             </PromptInputTools>
-            <PromptInputSubmit
-              status={status === 'streaming' ? 'streaming' : 'ready'}
-              disabled={!input.trim() || isSending}
-              className="m-1.5 sm:m-2 h-7 w-7 sm:h-8 sm:w-8 rounded-full"
-            />
+
+            <div className="flex items-center gap-1">
+              <SettingsButton onClick={() => setSettingsOpen(true)} />
+              <PromptInputSubmit
+                status={status === 'streaming' ? 'streaming' : 'ready'}
+                disabled={!input.trim() || isSending || !isConfigured}
+                className="m-1.5 sm:m-2 h-7 w-7 sm:h-8 sm:w-8 rounded-full"
+              />
+            </div>
           </PromptInputFooter>
         </PromptInput>
       </div>
     </div>
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <SettingsProvider>
+      <ChatContent />
+    </SettingsProvider>
   );
 }

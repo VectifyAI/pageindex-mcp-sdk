@@ -1,34 +1,29 @@
 import { PageIndexClient, PageIndexError } from '@pageindex/sdk';
 import { NextResponse } from 'next/server';
+import { getConfigFromRequest, validatePageIndexConfig } from '@/lib/config';
 
-function getClient() {
-  const apiUrl = process.env.PAGEINDEX_API_URL;
-  const apiKey = process.env.PAGEINDEX_API_KEY;
+function getClient(req: Request) {
+  const config = getConfigFromRequest(req);
+  const { valid, missing } = validatePageIndexConfig(config);
 
-  if (!apiUrl || !apiKey) {
-    throw new Error('PAGEINDEX_API_URL and PAGEINDEX_API_KEY must be set');
+  if (!valid) {
+    throw new Error(`Missing configuration: ${missing.join(', ')}`);
   }
 
-  return new PageIndexClient({ apiUrl, apiKey });
+  return new PageIndexClient({
+    apiUrl: config.pageindexApiUrl,
+    apiKey: config.pageindexApiKey,
+  });
 }
 
 function handleError(error: unknown, defaultMessage: string) {
   if (error instanceof PageIndexError) {
-    return NextResponse.json(
-      { error: error.message, code: error.code },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message, code: error.code }, { status: 500 });
   }
   if (error instanceof Error) {
-    return NextResponse.json(
-      { error: error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  return NextResponse.json(
-    { error: defaultMessage },
-    { status: 500 }
-  );
+  return NextResponse.json({ error: defaultMessage }, { status: 500 });
 }
 
 export async function GET(req: Request) {
@@ -37,14 +32,11 @@ export async function GET(req: Request) {
   const fileType = searchParams.get('fileType');
 
   if (!fileName || !fileType) {
-    return NextResponse.json(
-      { error: 'fileName and fileType are required' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'fileName and fileType are required' }, { status: 400 });
   }
 
   try {
-    const client = getClient();
+    const client = getClient(req);
     await client.connect();
 
     const result = await client.tools.getSignedUploadUrl({
@@ -68,13 +60,10 @@ export async function POST(req: Request) {
     const { fileName } = await req.json();
 
     if (!fileName) {
-      return NextResponse.json(
-        { error: 'fileName is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'fileName is required' }, { status: 400 });
     }
 
-    const client = getClient();
+    const client = getClient(req);
     await client.connect();
 
     const result = await client.tools.submitDocument({ fileName });

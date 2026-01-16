@@ -1,21 +1,10 @@
-import { anthropic } from '@ai-sdk/anthropic';
+import { createAnthropic } from '@ai-sdk/anthropic';
 import { streamText, convertToModelMessages, stepCountIs, type UIMessage } from 'ai';
 import { PageIndexClient } from '@pageindex/sdk';
 import { buildPageIndexTools } from '@/lib/tools';
+import { getConfigFromRequest, validateConfig } from '@/lib/config';
 
 export const maxDuration = 60;
-
-// Singleton PageIndex client
-let pageIndexClient: PageIndexClient | null = null;
-function getPageIndexClient() {
-  if (!pageIndexClient) {
-    pageIndexClient = new PageIndexClient({
-      apiUrl: process.env.PAGEINDEX_API_URL!,
-      apiKey: process.env.PAGEINDEX_API_KEY!,
-    });
-  }
-  return pageIndexClient;
-}
 
 interface FilePart {
   type: 'file';
@@ -44,7 +33,7 @@ function normalizeMessageFileParts(message: UIMessage): UIMessage {
       part.type === 'file' &&
       'url' in part &&
       typeof part.url === 'string' &&
-      part.url.startsWith('data:application/json;base64,')
+      part.url.startsWith('data:application/json;base64,'),
   );
 
   if (fileParts.length === 0) {
@@ -60,7 +49,9 @@ function normalizeMessageFileParts(message: UIMessage): UIMessage {
       fileTextContents.push(`<document name="${filename}">\n${jsonString}\n</document>`);
     } catch {
       const filename = filePart.filename || 'document.json';
-      fileTextContents.push(`<document name="${filename}">\n[Unable to decode file content]\n</document>`);
+      fileTextContents.push(
+        `<document name="${filename}">\n[Unable to decode file content]\n</document>`,
+      );
     }
   }
 
@@ -84,16 +75,33 @@ function normalizeMessageFileParts(message: UIMessage): UIMessage {
 }
 
 export async function POST(req: Request) {
-  const { messages }: { messages: UIMessage[] } = await req.json();
+  const config = getConfigFromRequest(req);
+  const { valid, missing } = validateConfig(config);
 
+  if (!valid) {
+    return new Response(JSON.stringify({ error: `Missing configuration: ${missing.join(', ')}` }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  const { messages }: { messages: UIMessage[] } = await req.json();
   const normalizedMessages = messages.map(normalizeMessageFileParts);
 
-  // Initialize PageIndex client and tools
-  const client = getPageIndexClient();
-  if (!client.isConnected()) {
-    await client.connect();
+  // Create Anthropic client with the provided API key
+  const anthropic = createAnthropic({ apiKey: config.anthropicApiKey });
+
+  // Create PageIndex client with the provided config
+  const pageIndexClient = new PageIndexClient({
+    apiUrl: config.pageindexApiUrl,
+    apiKey: config.pageindexApiKey,
+  });
+
+  if (!pageIndexClient.isConnected()) {
+    await pageIndexClient.connect();
   }
-  const tools = buildPageIndexTools(client);
+
+  const tools = buildPageIndexTools(pageIndexClient);
 
   const result = streamText({
     model: anthropic('claude-sonnet-4-20250514'),
