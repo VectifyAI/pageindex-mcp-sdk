@@ -13,7 +13,7 @@ export class McpTransport {
   private connected = false;
 
   constructor(
-    private config: { apiUrl: string; apiKey: string; localUpload?: boolean },
+    private config: { apiUrl: string; apiKey: string },
   ) { }
 
   isConnected = () => this.connected;
@@ -21,7 +21,7 @@ export class McpTransport {
   async connect(): Promise<void> {
     if (this.connected) return;
     const url = new URL("/mcp", this.config.apiUrl);
-    if (this.config.localUpload) url.searchParams.set("local_upload", "1");
+    url.searchParams.set("local_upload", "1");
     this.transport = new StreamableHTTPClientTransport(url, {
       requestInit: {
         headers: { Authorization: `Bearer ${this.config.apiKey}` },
@@ -49,7 +49,13 @@ export class McpTransport {
       throw new PageIndexError("Empty response from server", "INTERNAL_ERROR");
     }
 
-    const data = JSON.parse(text);
+    let data: unknown;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      // Response is not JSON - treat it as a plain text error
+      throw new PageIndexError(text, "INTERNAL_ERROR");
+    }
 
     if (r.isError) {
       const { error, errorCode, ...details } = data as {

@@ -1,191 +1,391 @@
 'use client';
 
-import { MessageContent, MessageResponse } from '@/components/ai-elements/message';
+import {
+  Conversation,
+  ConversationContent,
+  ConversationEmptyState,
+  ConversationScrollButton,
+} from '@/components/ai-elements/conversation';
+import { Message, MessageContent, MessageResponse } from '@/components/ai-elements/message';
 import {
   PromptInput,
   PromptInputTextarea,
   PromptInputSubmit,
+  PromptInputHeader,
+  PromptInputBody,
+  PromptInputFooter,
+  PromptInputTools,
+  PromptInputActionMenu,
+  PromptInputActionMenuTrigger,
+  PromptInputActionMenuContent,
+  PromptInputActionMenuItem,
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input';
-import { SparklesIcon } from '@/components/icons';
+import { Shimmer } from '@/components/ai-elements/shimmer';
+import { DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useChat } from '@ai-sdk/react';
-import { ArrowDownIcon } from 'lucide-react';
+import type { FileUIPart } from 'ai';
+import {
+  CheckCircle2Icon,
+  FileIcon,
+  Loader2Icon,
+  PaperclipIcon,
+  UploadIcon,
+  XCircleIcon,
+  XIcon,
+} from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-function Greeting() {
-  return (
-    <div className="mx-auto flex size-full max-w-3xl flex-col justify-center px-4 md:mt-16 md:px-8">
-      <div className="animate-in fade-in duration-500 fill-mode-forwards font-semibold text-xl md:text-2xl">
-        Hello there!
-      </div>
-      <div className="animate-in fade-in duration-500 delay-100 fill-mode-forwards text-xl text-zinc-500 md:text-2xl">
-        How can I help you today?
-      </div>
-    </div>
-  );
+interface RecentDocument {
+  id: string;
+  name: string;
+  description: string;
+  status: string;
+  createdAt: string;
+  pageNum?: number;
 }
 
-function ThinkingMessage() {
-  return (
-    <div className="group/message fade-in w-full animate-in duration-300" data-role="assistant">
-      <div className="flex items-start justify-start gap-3">
-        <div className="-mt-1 flex size-8 shrink-0 items-center justify-center rounded-full bg-background ring-1 ring-border">
-          <div className="animate-pulse">
-            <SparklesIcon size={14} />
-          </div>
-        </div>
-        <div className="flex w-full flex-col gap-2 md:gap-4">
-          <div className="flex items-center gap-1 p-0 text-muted-foreground text-sm">
-            <span className="animate-pulse">Thinking</span>
-            <span className="inline-flex">
-              <span className="animate-bounce [animation-delay:0ms]">.</span>
-              <span className="animate-bounce [animation-delay:150ms]">.</span>
-              <span className="animate-bounce [animation-delay:300ms]">.</span>
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PreviewMessage({
-  message,
-}: {
-  message: { id: string; role: string; parts: Array<{ type: string; text?: string }> };
-  isLoading: boolean;
-}) {
-  return (
-    <div className="group/message fade-in w-full animate-in duration-200" data-role={message.role}>
-      <div
-        className={cn('flex w-full items-start gap-2 md:gap-3', {
-          'justify-end': message.role === 'user',
-          'justify-start': message.role === 'assistant',
-        })}
-      >
-        {message.role === 'assistant' && (
-          <div className="-mt-1 flex size-8 shrink-0 items-center justify-center rounded-full bg-background ring-1 ring-border">
-            <SparklesIcon size={14} />
-          </div>
-        )}
-
-        <div
-          className={cn('flex flex-col', {
-            'gap-2 md:gap-4': message.parts?.some((p) => p.type === 'text' && p.text?.trim()),
-          })}
-        >
-          {message.parts.map((part, i) => {
-            if (part.type === 'text') {
-              if (message.role === 'user') {
-                return (
-                  <div
-                    key={`${message.id}-${i}`}
-                    className="rounded-xl bg-primary px-4 py-2.5 text-primary-foreground"
-                  >
-                    {part.text}
-                  </div>
-                );
-              }
-              return (
-                <MessageContent key={`${message.id}-${i}`} className="px-0 py-0 bg-transparent">
-                  <MessageResponse>{part.text}</MessageResponse>
-                </MessageContent>
-              );
-            }
-            return null;
-          })}
-        </div>
-      </div>
-    </div>
-  );
+function DocumentStatusIcon({ status }: { status: string }) {
+  switch (status) {
+    case 'ready':
+      return <CheckCircle2Icon className="size-4 text-green-500" />;
+    case 'processing':
+      return <Loader2Icon className="size-4 animate-spin text-yellow-500" />;
+    case 'failed':
+      return <XCircleIcon className="size-4 text-red-500" />;
+    default:
+      return <FileIcon className="size-4 text-muted-foreground" />;
+  }
 }
 
 export default function ChatPage() {
   const [input, setInput] = useState('');
   const { messages, sendMessage, status } = useChat();
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [isAtBottom, setIsAtBottom] = useState(true);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
-    messagesEndRef.current?.scrollIntoView({ behavior });
-  }, []);
+  const [documents, setDocuments] = useState<RecentDocument[]>([]);
+  const [selectedDocs, setSelectedDocs] = useState<RecentDocument[]>([]);
+  const [isLoadingDocs, setIsLoadingDocs] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  const handleScroll = useCallback(() => {
-    if (!messagesContainerRef.current) return;
-    const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
-    setIsAtBottom(scrollHeight - scrollTop - clientHeight < 50);
+  const fetchDocuments = useCallback(async () => {
+    setIsLoadingDocs(true);
+    try {
+      const res = await fetch('/api/documents');
+      if (res.ok) {
+        const data = await res.json();
+        setDocuments(data.docs || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch documents:', error);
+    } finally {
+      setIsLoadingDocs(false);
+    }
   }, []);
 
   useEffect(() => {
-    if (isAtBottom) {
-      scrollToBottom('instant');
+    if (dropdownOpen) {
+      fetchDocuments();
     }
-  }, [messages, isAtBottom, scrollToBottom]);
+  }, [dropdownOpen, fetchDocuments]);
 
-  const handleSubmit = (message: PromptInputMessage) => {
-    if (!message.text?.trim()) return;
-    sendMessage({ text: message.text });
-    setInput('');
+  const handleFileUpload = async (file: File) => {
+    setIsUploading(true);
+    try {
+      const uploadUrlRes = await fetch(
+        `/api/upload?fileName=${encodeURIComponent(file.name)}&fileType=${encodeURIComponent(file.type)}`,
+      );
+      if (!uploadUrlRes.ok) {
+        throw new Error('Failed to get upload URL');
+      }
+      const { uploadUrl, fileName } = await uploadUrlRes.json();
+
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: { 'Content-Type': file.type },
+      });
+      if (!uploadRes.ok) {
+        throw new Error('Failed to upload file');
+      }
+
+      const submitRes = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName }),
+      });
+      if (!submitRes.ok) {
+        throw new Error('Failed to submit document');
+      }
+
+      await fetchDocuments();
+    } catch (error) {
+      console.error('Upload failed:', error);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleFileUpload(file);
+    }
+    e.target.value = '';
+  };
+
+  const toggleDocSelection = useCallback((doc: RecentDocument) => {
+    setSelectedDocs((prev) => {
+      const isSelected = prev.some((d) => d.id === doc.id);
+      if (isSelected) {
+        return prev.filter((d) => d.id !== doc.id);
+      }
+      return [...prev, doc];
+    });
+  }, []);
+
+  const removeSelectedDoc = useCallback((docId: string) => {
+    setSelectedDocs((prev) => prev.filter((d) => d.id !== docId));
+  }, []);
+
+  const handleSubmit = async (message: PromptInputMessage) => {
+    const userText = message.text?.trim();
+    if (!userText) return;
+
+    if (selectedDocs.length === 0) {
+      sendMessage({ text: userText });
+      setInput('');
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      const docNames = selectedDocs.map((d) => d.name);
+      const res = await fetch('/api/documents/details', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ docNames }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to fetch document details');
+      }
+
+      const data = await res.json();
+      const docDetails = data.documents || [];
+
+      const fileParts = docDetails.map((doc: Record<string, unknown>) => {
+        const jsonContent = JSON.stringify(doc, null, 2);
+        const base64Content = btoa(unescape(encodeURIComponent(jsonContent)));
+        return {
+          type: 'file' as const,
+          mediaType: 'application/json',
+          filename: `${doc.name || 'document'}.json`,
+          url: `data:application/json;base64,${base64Content}`,
+        };
+      });
+
+      sendMessage({
+        text: userText,
+        files: fileParts,
+      });
+      setInput('');
+      setSelectedDocs([]);
+    } catch (error) {
+      console.error('Failed to send message:', error);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
     <div className="flex h-screen flex-col bg-background">
-      <header className="sticky top-0 z-10 flex items-center gap-2 border-b bg-background px-4 py-3">
-        <h1 className="font-semibold text-lg">PageIndex Chat Demo</h1>
-      </header>
-
       <main className="relative flex-1 overflow-hidden">
-        <div
-          ref={messagesContainerRef}
-          onScroll={handleScroll}
-          className="absolute inset-0 touch-pan-y overflow-y-auto"
-        >
-          <div className="mx-auto flex min-w-0 max-w-4xl flex-col gap-4 px-2 py-4 md:gap-6 md:px-4">
-            {messages.length === 0 && <Greeting />}
-
-            {messages.map((message, index) => (
-              <PreviewMessage
-                key={message.id}
-                message={message}
-                isLoading={status === 'streaming' && messages.length - 1 === index}
+        <Conversation className="absolute inset-0">
+          <ConversationContent className="mx-auto max-w-4xl">
+            {messages.length === 0 && (
+              <ConversationEmptyState
+                title="Hello there!"
+                description="How can I help you today?"
               />
-            ))}
+            )}
 
-            {status === 'submitted' && <ThinkingMessage />}
+            {messages.map((message) => {
+              const fileParts = message.parts.filter(
+                (part): part is FileUIPart => part.type === 'file',
+              );
+              const parsedDocs = fileParts.map((part) => {
+                try {
+                  if (part.url?.startsWith('data:application/json;base64,')) {
+                    const base64 = part.url.replace('data:application/json;base64,', '');
+                    const json = decodeURIComponent(escape(atob(base64)));
+                    return JSON.parse(json) as { name?: string; description?: string };
+                  }
+                } catch {
+                  // ignore parse errors
+                }
+                return { name: part.filename, description: '' };
+              });
+              return (
+                <Message key={message.id} from={message.role}>
+                  {message.role === 'user' && parsedDocs.length > 0 && (
+                    <div className="ml-auto flex flex-wrap gap-2">
+                      {parsedDocs.map((doc, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center gap-1.5 rounded-md border border-border bg-muted/50 p-2 text-sm"
+                        >
+                          <FileIcon className="size-8 shrink-0 text-muted-foreground/50" />
+                          <div className="flex flex-col gap-0.5">
+                            <span className="max-w-48 truncate font-medium">{doc.name}</span>
+                            {doc.description && (
+                              <span className="max-w-48 line-clamp-2 text-xs text-muted-foreground">
+                                {doc.description}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <MessageContent>
+                    {message.parts.map((part, i) => {
+                      if (part.type === 'text') {
+                        return message.role === 'user' ? (
+                          <span key={i}>{part.text}</span>
+                        ) : (
+                          <MessageResponse key={i}>{part.text}</MessageResponse>
+                        );
+                      }
+                      return null;
+                    })}
+                  </MessageContent>
+                </Message>
+              );
+            })}
 
-            <div ref={messagesEndRef} className="min-h-[24px] min-w-[24px] shrink-0" />
-          </div>
-        </div>
-
-        <button
-          type="button"
-          aria-label="Scroll to bottom"
-          onClick={() => scrollToBottom('smooth')}
-          className={cn(
-            'absolute bottom-4 left-1/2 z-10 -translate-x-1/2 rounded-full border bg-background p-2 shadow-lg transition-all hover:bg-muted',
-            isAtBottom
-              ? 'pointer-events-none scale-0 opacity-0'
-              : 'pointer-events-auto scale-100 opacity-100',
-          )}
-        >
-          <ArrowDownIcon className="size-4" />
-        </button>
+            {status === 'submitted' && (
+              <Message from="assistant">
+                <MessageContent>
+                  <Shimmer className="text-muted-foreground text-sm">Thinking...</Shimmer>
+                </MessageContent>
+              </Message>
+            )}
+          </ConversationContent>
+          <ConversationScrollButton />
+        </Conversation>
       </main>
 
-      <div className="sticky bottom-0 mx-auto w-full max-w-4xl border-t bg-background p-4">
+      <div className="sticky bottom-0 mx-auto w-full max-w-4xl bg-background pb-4">
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          accept=".pdf,.doc,.docx,.txt,.md"
+          onChange={handleFileSelect}
+        />
+
         <PromptInput onSubmit={handleSubmit}>
-          <PromptInputTextarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask anything..."
-            className="min-h-[48px]"
-          />
-          <PromptInputSubmit
-            status={status === 'streaming' ? 'streaming' : 'ready'}
-            disabled={!input.trim()}
-          />
+          {selectedDocs.length > 0 && (
+            <PromptInputHeader className="flex-wrap gap-2 px-3 pt-2 pb-1">
+              {selectedDocs.map((doc) => (
+                <div
+                  key={doc.id}
+                  className="flex items-center gap-1.5 rounded-md border border-border bg-muted/50 px-2 py-1 text-sm"
+                >
+                  <FileIcon className="size-3.5 text-muted-foreground" />
+                  <span className="max-w-32 truncate">{doc.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeSelectedDoc(doc.id)}
+                    className="ml-0.5 rounded-full p-0.5 hover:bg-muted"
+                  >
+                    <XIcon className="size-3" />
+                  </button>
+                </div>
+              ))}
+            </PromptInputHeader>
+          )}
+
+          <PromptInputBody>
+            <PromptInputTextarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask anything..."
+              className="min-h-16 resize-none text-sm sm:text-base"
+            />
+          </PromptInputBody>
+
+          <PromptInputFooter className="px-1 sm:px-2">
+            <PromptInputTools>
+              <PromptInputActionMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
+                <PromptInputActionMenuTrigger
+                  disabled={isUploading}
+                  className="ml-0.5 sm:ml-1 shrink-0 gap-1 rounded-full border border-border p-1 hover:bg-muted"
+                >
+                  {isUploading ? (
+                    <Loader2Icon className="size-4 animate-spin" />
+                  ) : (
+                    <PaperclipIcon className="size-4" />
+                  )}
+                </PromptInputActionMenuTrigger>
+                <PromptInputActionMenuContent className="w-64">
+                  <PromptInputActionMenuItem
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      fileInputRef.current?.click();
+                    }}
+                  >
+                    <UploadIcon className="mr-2 size-4" />
+                    Upload new file...
+                  </PromptInputActionMenuItem>
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuLabel className="flex items-center justify-between">
+                    <span>Recent Documents</span>
+                    {isLoadingDocs && <Loader2Icon className="size-3 animate-spin" />}
+                  </DropdownMenuLabel>
+
+                  {documents.length === 0 && !isLoadingDocs && (
+                    <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                      No documents yet
+                    </div>
+                  )}
+
+                  {documents.map((doc) => {
+                    const isSelected = selectedDocs.some((d) => d.id === doc.id);
+                    return (
+                      <PromptInputActionMenuItem
+                        key={doc.id}
+                        className="flex items-center justify-between"
+                        onSelect={(e) => {
+                          e.preventDefault();
+                          toggleDocSelection(doc);
+                        }}
+                      >
+                        <span className={cn('truncate flex-1 mr-2', isSelected && 'font-medium')}>
+                          {doc.name}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          {isSelected && <CheckCircle2Icon className="size-4 text-primary" />}
+                          <DocumentStatusIcon status={doc.status} />
+                        </div>
+                      </PromptInputActionMenuItem>
+                    );
+                  })}
+                </PromptInputActionMenuContent>
+              </PromptInputActionMenu>
+            </PromptInputTools>
+            <PromptInputSubmit
+              status={status === 'streaming' ? 'streaming' : 'ready'}
+              disabled={!input.trim() || isSending}
+              className="m-1.5 sm:m-2 h-7 w-7 sm:h-8 sm:w-8 rounded-full"
+            />
+          </PromptInputFooter>
         </PromptInput>
       </div>
     </div>

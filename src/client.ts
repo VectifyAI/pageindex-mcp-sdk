@@ -4,7 +4,6 @@ import { McpTransport } from "./transport.js";
 export interface PageIndexClientConfig {
   apiUrl: string;
   apiKey: string;
-  localUpload?: boolean;
 }
 
 export class PageIndexClient {
@@ -15,7 +14,6 @@ export class PageIndexClient {
     this.transport = new McpTransport({
       apiUrl: config.apiUrl.replace(/\/$/, ""),
       apiKey: config.apiKey,
-      localUpload: config.localUpload,
     });
   }
 
