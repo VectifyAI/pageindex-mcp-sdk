@@ -106,16 +106,20 @@ export type ToolInputProps = ComponentProps<"div"> & {
   input: ToolUIPart["input"];
 };
 
-export const ToolInput = ({ className, input, ...props }: ToolInputProps) => (
-  <div className={cn("space-y-2 overflow-hidden p-4", className)} {...props}>
-    <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-      Parameters
-    </h4>
-    <div className="rounded-md bg-muted/50">
-      <CodeBlock code={JSON.stringify(input, null, 2)} language="json" />
+export const ToolInput = ({ className, input, ...props }: ToolInputProps) => {
+  const code = input != null ? JSON.stringify(input, null, 2) : "{}";
+
+  return (
+    <div className={cn("space-y-2 overflow-hidden p-4", className)} {...props}>
+      <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+        Parameters
+      </h4>
+      <div className="rounded-md bg-muted/50">
+        <CodeBlock code={code} language="json" />
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export type ToolOutputProps = ComponentProps<"div"> & {
   output: ToolUIPart["output"];
@@ -128,18 +132,22 @@ export const ToolOutput = ({
   errorText,
   ...props
 }: ToolOutputProps) => {
-  if (!(output || errorText)) {
+  if (output == null && !errorText) {
     return null;
   }
 
-  let Output = <div>{output as ReactNode}</div>;
+  let Output: ReactNode = null;
 
-  if (typeof output === "object" && !isValidElement(output)) {
-    Output = (
-      <CodeBlock code={JSON.stringify(output, null, 2)} language="json" />
-    );
-  } else if (typeof output === "string") {
-    Output = <CodeBlock code={output} language="json" />;
+  if (output != null) {
+    if (typeof output === "object" && !isValidElement(output)) {
+      Output = (
+        <CodeBlock code={JSON.stringify(output, null, 2)} language="json" />
+      );
+    } else if (typeof output === "string") {
+      Output = <CodeBlock code={output} language="json" />;
+    } else {
+      Output = <div>{output as ReactNode}</div>;
+    }
   }
 
   return (
@@ -151,11 +159,11 @@ export const ToolOutput = ({
         className={cn(
           "overflow-x-auto rounded-md text-xs [&_table]:w-full",
           errorText
-            ? "bg-destructive/10 text-destructive"
+            ? "bg-destructive/10 text-destructive p-2"
             : "bg-muted/50 text-foreground"
         )}
       >
-        {errorText && <div>{errorText}</div>}
+        {errorText && <div className="p-2">{errorText}</div>}
         {Output}
       </div>
     </div>
