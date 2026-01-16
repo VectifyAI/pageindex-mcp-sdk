@@ -10,10 +10,11 @@ function getClient(req: Request) {
     throw new Error(`Missing configuration: ${missing.join(', ')}`);
   }
 
+  // Note: folder list endpoint does NOT use folderScope
+  // because users need to see all folders to select one
   return new PageIndexClient({
     apiUrl: config.pageindexApiUrl,
     apiKey: config.pageindexApiKey,
-    folderScope: config.folderScope,
   });
 }
 
@@ -32,17 +33,14 @@ export async function GET(req: Request) {
     const client = getClient(req);
     await client.connect();
 
-    const result = await client.tools.recentDocuments();
+    // Get root-level folders only
+    const result = await client.tools.listFolders({ parentFolderId: 'root' });
 
     return NextResponse.json({
-      docs: result.docs,
-      totalShown: result.total_shown,
-      processingCount: result.processing_count,
-      readyCount: result.ready_count,
-      failedCount: result.failed_count,
+      folders: result.folders,
     });
   } catch (error) {
-    console.error('Failed to fetch recent documents:', error);
-    return handleError(error, 'Failed to fetch documents');
+    console.error('Failed to fetch folders:', error);
+    return handleError(error, 'Failed to fetch folders');
   }
 }

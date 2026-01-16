@@ -11,10 +11,22 @@ export class McpTransport {
   );
   private transport: StreamableHTTPClientTransport | null = null;
   private connected = false;
+  private folderScope: string | undefined;
 
   constructor(
-    private config: { apiUrl: string; apiKey: string },
-  ) { }
+    private config: { apiUrl: string; apiKey: string; folderScope?: string },
+  ) {
+    this.folderScope = config.folderScope;
+  }
+
+  async setFolderScope(scope: string | undefined): Promise<void> {
+    if (this.folderScope === scope) return;
+    this.folderScope = scope;
+    if (this.connected) {
+      await this.close();
+      await this.connect();
+    }
+  }
 
   isConnected = () => this.connected;
 
@@ -23,10 +35,14 @@ export class McpTransport {
     const url = new URL("/mcp", this.config.apiUrl);
     url.searchParams.set("local_upload", "1");
     url.searchParams.set("folder", "1");
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${this.config.apiKey}`,
+    };
+    if (this.folderScope) {
+      headers["X-Folder-Scope"] = this.folderScope;
+    }
     this.transport = new StreamableHTTPClientTransport(url, {
-      requestInit: {
-        headers: { Authorization: `Bearer ${this.config.apiKey}` },
-      },
+      requestInit: { headers },
     });
     await this.client.connect(this.transport);
     this.connected = true;

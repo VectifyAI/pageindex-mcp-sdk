@@ -7,7 +7,13 @@ import {
   ConversationScrollButton,
 } from '@/components/ai-elements/conversation';
 import { Message, MessageContent, MessageResponse } from '@/components/ai-elements/message';
-import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/components/ai-elements/tool';
+import {
+  Tool,
+  ToolHeader,
+  ToolContent,
+  ToolInput,
+  ToolOutput,
+} from '@/components/ai-elements/tool';
 import {
   PromptInput,
   PromptInputTextarea,
@@ -25,6 +31,14 @@ import {
 import { Shimmer } from '@/components/ai-elements/shimmer';
 import { SettingsDialog, SettingsButton } from '@/components/settings-dialog';
 import { DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { SettingsProvider, useSettings } from '@/lib/settings';
 import { cn } from '@/lib/utils';
 import { useChat } from '@ai-sdk/react';
@@ -32,13 +46,14 @@ import type { FileUIPart, ToolUIPart } from 'ai';
 import {
   CheckCircle2Icon,
   FileIcon,
+  FolderIcon,
   Loader2Icon,
   PaperclipIcon,
   UploadIcon,
   XCircleIcon,
   XIcon,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface RecentDocument {
   id: string;
@@ -47,6 +62,11 @@ interface RecentDocument {
   status: string;
   createdAt: string;
   pageNum?: number;
+}
+
+interface Folder {
+  id: string;
+  name: string;
 }
 
 function DocumentStatusIcon({ status }: { status: string }) {
@@ -73,12 +93,11 @@ function isToolPart(part: unknown): part is ToolUIPart {
 }
 
 function ChatContent() {
-  const { isConfigured, isLoaded, getHeaders } = useSettings();
+  const { isConfigured, isLoaded, getHeaders, settings, updateSettings } = useSettings();
   const [input, setInput] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const headers = useMemo(() => getHeaders(), [getHeaders]);
   const { messages, sendMessage, status } = useChat();
 
   const [documents, setDocuments] = useState<RecentDocument[]>([]);
@@ -87,6 +106,8 @@ function ChatContent() {
   const [isUploading, setIsUploading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [isLoadingFolders, setIsLoadingFolders] = useState(false);
 
   // Auto-open settings dialog when not configured
   useEffect(() => {
@@ -98,7 +119,7 @@ function ChatContent() {
   const fetchDocuments = useCallback(async () => {
     setIsLoadingDocs(true);
     try {
-      const res = await fetch('/api/documents', { headers });
+      const res = await fetch('/api/documents', { headers: getHeaders() });
       if (res.ok) {
         const data = await res.json();
         setDocuments(data.docs || []);
@@ -108,7 +129,22 @@ function ChatContent() {
     } finally {
       setIsLoadingDocs(false);
     }
-  }, [headers]);
+  }, [getHeaders]);
+
+  const fetchFolders = useCallback(async () => {
+    setIsLoadingFolders(true);
+    try {
+      const res = await fetch('/api/folders', { headers: getHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setFolders(data.folders || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch folders:', error);
+    } finally {
+      setIsLoadingFolders(false);
+    }
+  }, [getHeaders]);
 
   useEffect(() => {
     if (dropdownOpen && isConfigured) {
@@ -116,9 +152,38 @@ function ChatContent() {
     }
   }, [dropdownOpen, fetchDocuments, isConfigured]);
 
+  // Refresh documents when folderScope changes
+  useEffect(() => {
+    if (!isConfigured) return;
+
+    const fetchDocs = async () => {
+      setIsLoadingDocs(true);
+      try {
+        const res = await fetch('/api/documents', { headers: getHeaders() });
+        if (res.ok) {
+          const data = await res.json();
+          setDocuments(data.docs || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch documents:', error);
+      } finally {
+        setIsLoadingDocs(false);
+      }
+    };
+
+    fetchDocs();
+  }, [settings.folderScope, isConfigured, getHeaders]);
+
+  useEffect(() => {
+    if (isConfigured && folders.length === 0) {
+      fetchFolders();
+    }
+  }, [isConfigured, folders.length, fetchFolders]);
+
   const handleFileUpload = async (file: File) => {
     setIsUploading(true);
     try {
+      const headers = getHeaders();
       const uploadUrlRes = await fetch(
         `/api/upload?fileName=${encodeURIComponent(file.name)}&fileType=${encodeURIComponent(file.type)}`,
         { headers },
@@ -176,9 +241,28 @@ function ChatContent() {
     setSelectedDocs((prev) => prev.filter((d) => d.id !== docId));
   }, []);
 
+  const handleFolderScopeChange = useCallback(
+    (value: string) => {
+      const folderScope = value === 'all' ? undefined : value;
+      updateSettings({ ...settings, folderScope });
+      setDocuments([]);
+    },
+    [settings, updateSettings],
+  );
+
+  const getFolderScopeLabel = useCallback(() => {
+    if (!settings.folderScope) return 'All Folders';
+    if (settings.folderScope === 'root') return 'Root Only';
+    const folderId = settings.folderScope.replace('folder:', '');
+    const folder = folders.find((f) => f.id === folderId);
+    return folder?.name || 'Folder';
+  }, [settings.folderScope, folders]);
+
   const handleSubmit = async (message: PromptInputMessage) => {
     const userText = message.text?.trim();
     if (!userText) return;
+
+    const headers = getHeaders();
 
     if (selectedDocs.length === 0) {
       sendMessage({ text: userText }, { headers });
@@ -417,6 +501,32 @@ function ChatContent() {
                   })}
                 </PromptInputActionMenuContent>
               </PromptInputActionMenu>
+
+              <Select
+                value={settings.folderScope || 'all'}
+                onValueChange={handleFolderScopeChange}
+                disabled={!isConfigured || isLoadingFolders}
+              >
+                <SelectTrigger
+                  size="sm"
+                  className="h-7 w-auto gap-1 rounded-full border-border px-2"
+                >
+                  <FolderIcon className="size-3.5" />
+                  <SelectValue>
+                    <span className="max-w-24 truncate text-xs">{getFolderScopeLabel()}</span>
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent align="start">
+                  <SelectItem value="all">All Folders</SelectItem>
+                  <SelectItem value="root">Root Only</SelectItem>
+                  {folders.length > 0 && <SelectSeparator />}
+                  {folders.map((folder) => (
+                    <SelectItem key={folder.id} value={`folder:${folder.id}`}>
+                      {folder.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </PromptInputTools>
 
             <div className="flex items-center gap-1">

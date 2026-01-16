@@ -92,6 +92,7 @@ export async function POST(req: Request) {
   const pageIndexClient = new PageIndexClient({
     apiUrl: config.pageindexApiUrl,
     apiKey: config.pageindexApiKey,
+    folderScope: config.folderScope,
   });
 
   if (!pageIndexClient.isConnected()) {

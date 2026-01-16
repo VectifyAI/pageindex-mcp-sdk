@@ -4,6 +4,7 @@ import { McpTransport } from "./transport.js";
 export interface PageIndexClientConfig {
   apiUrl: string;
   apiKey: string;
+  folderScope?: string;
 }
 
 export class PageIndexClient {
@@ -14,7 +15,12 @@ export class PageIndexClient {
     this.transport = new McpTransport({
       apiUrl: config.apiUrl.replace(/\/$/, ""),
       apiKey: config.apiKey,
+      folderScope: config.folderScope,
     });
+  }
+
+  setFolderScope(scope: string | undefined): Promise<void> {
+    return this.transport.setFolderScope(scope);
   }
 
   get tools(): PageIndexTools {

@@ -2,6 +2,7 @@ export interface ApiConfig {
   anthropicApiKey: string;
   pageindexApiUrl: string;
   pageindexApiKey: string;
+  folderScope?: string;
 }
 
 export function getConfigFromRequest(req: Request): ApiConfig {
@@ -12,6 +13,7 @@ export function getConfigFromRequest(req: Request): ApiConfig {
       req.headers.get('x-pageindex-api-url') || process.env.PAGEINDEX_API_URL || '',
     pageindexApiKey:
       req.headers.get('x-pageindex-api-key') || process.env.PAGEINDEX_API_KEY || '',
+    folderScope: req.headers.get('x-folder-scope') || undefined,
   };
 }
 

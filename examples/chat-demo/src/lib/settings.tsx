@@ -8,6 +8,7 @@ export interface Settings {
   anthropicApiKey: string;
   pageindexApiUrl: string;
   pageindexApiKey: string;
+  folderScope?: string;
 }
 
 interface SettingsContextValue {
@@ -70,6 +71,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
     if (settings.pageindexApiKey) {
       headers['x-pageindex-api-key'] = settings.pageindexApiKey;
+    }
+    if (settings.folderScope) {
+      headers['x-folder-scope'] = settings.folderScope;
     }
     return headers;
   }, [settings]);

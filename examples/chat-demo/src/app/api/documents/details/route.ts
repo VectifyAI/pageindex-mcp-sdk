@@ -13,6 +13,7 @@ function getClient(req: Request) {
   return new PageIndexClient({
     apiUrl: config.pageindexApiUrl,
     apiKey: config.pageindexApiKey,
+    folderScope: config.folderScope,
   });
 }
 
