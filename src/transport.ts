@@ -22,6 +22,7 @@ export class McpTransport {
     if (this.connected) return;
     const url = new URL("/mcp", this.config.apiUrl);
     url.searchParams.set("local_upload", "1");
+    url.searchParams.set("folder", "1");
     this.transport = new StreamableHTTPClientTransport(url, {
       requestInit: {
         headers: { Authorization: `Bearer ${this.config.apiKey}` },
