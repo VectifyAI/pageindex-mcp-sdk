@@ -88,10 +88,7 @@ export async function POST(req: Request) {
   const { messages }: { messages: UIMessage[] } = await req.json();
   const normalizedMessages = messages.map(normalizeMessageFileParts);
 
-  // Create Anthropic client with the provided API key
   const anthropic = createAnthropic({ apiKey: config.anthropicApiKey });
-
-  // Create PageIndex client with the provided config
   const pageIndexClient = new PageIndexClient({
     apiUrl: config.pageindexApiUrl,
     apiKey: config.pageindexApiKey,

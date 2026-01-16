@@ -30,7 +30,6 @@ const getPageContentSchema = z.object({
     .describe('Page specification: "5", "3,7,10", "5-10", or "1-3,7,9-12"'),
 });
 
-// Tool descriptions
 const TOOL_DESCRIPTIONS = {
   recent_documents:
     'List your recent document uploads with processing status. Returns up to 5 most recent documents. Use this to check which documents are ready for analysis.',
