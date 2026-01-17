@@ -1,4 +1,4 @@
-import { PageIndexClient, PageIndexError } from '@pageindex/sdk';
+import { PageIndexClient, PageIndexError } from '@pageindex/mcp-sdk';
 import { NextResponse } from 'next/server';
 import { getConfigFromRequest, validatePageIndexConfig } from '@/lib/config';
 

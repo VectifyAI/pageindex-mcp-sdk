@@ -1,6 +1,6 @@
 import { tool } from 'ai';
 import { z } from 'zod';
-import { PageIndexClient } from '@pageindex/sdk';
+import { PageIndexClient } from '@pageindex/mcp-sdk';
 
 // Tool schemas - using camelCase to match SDK types
 const recentDocumentsSchema = z.object({});

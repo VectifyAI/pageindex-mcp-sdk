@@ -1,6 +1,6 @@
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { streamText, convertToModelMessages, stepCountIs, type UIMessage } from 'ai';
-import { PageIndexClient } from '@pageindex/sdk';
+import { PageIndexClient } from '@pageindex/mcp-sdk';
 import { buildPageIndexTools } from '@/lib/tools';
 import { getConfigFromRequest, validateConfig } from '@/lib/config';
 

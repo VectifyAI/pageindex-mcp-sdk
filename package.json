@@ -1,7 +1,7 @@
 {
-  "name": "@pageindex/sdk",
+  "name": "@pageindex/mcp-sdk",
   "version": "0.1.0",
-  "description": "PageIndex SDK - Programmatic access to PageIndex document processing via MCP",
+  "description": "PageIndex MCP SDK - Document processing tools for AI agents via Model Context Protocol",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
