@@ -50,7 +50,7 @@ All methods via `client.tools`:
 | Method | Description |
 |--------|-------------|
 | `processDocument({ url })` | Upload and process document from URL |
-| `uploadDocument({ fileName, fileType, fileContent, onProgress? })` | Upload file and process |
+| `uploadDocument({ fileName, fileType, fileContent })` | Upload file and process |
 | `recentDocuments()` | List recent uploads |
 | `findRelevantDocuments({ nameOrDescriptionFilter?, limit? })` | Search documents |
 | `getDocument({ docName, waitForCompletion? })` | Get document details |

@@ -88,7 +88,7 @@ export class McpTransport {
 
   async close(): Promise<void> {
     if (this.connected) {
-      await this.client.close().catch(() => { });
+      await this.client.close().catch(() => {});
       this.transport = null;
       this.connected = false;
     }

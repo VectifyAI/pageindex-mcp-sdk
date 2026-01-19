@@ -1,53 +1,53 @@
 import type { McpTransport } from "../transport.js";
 import {
-  createFolder,
   type CreateFolderParams,
   type CreateFolderResult,
+  createFolder,
 } from "./create-folder.js";
 import {
-  findRelevantDocuments,
   type FindRelevantDocumentsParams,
   type FindRelevantDocumentsResult,
+  findRelevantDocuments,
 } from "./find-relevant-documents.js";
 import {
-  listFolders,
-  type ListFoldersParams,
-  type ListFoldersResult,
-} from "./list-folders.js";
-import {
-  getDocument,
-  type GetDocumentParams,
-  type GetDocumentResult,
-} from "./get-document.js";
-import {
-  getDocumentStructure,
   type GetDocumentStructureParams,
   type GetDocumentStructureResult,
+  getDocumentStructure,
 } from "./get-document-structure.js";
 import {
-  getPageContent,
+  type GetDocumentParams,
+  type GetDocumentResult,
+  getDocument,
+} from "./get-document.js";
+import {
   type GetPageContentParams,
   type GetPageContentResult,
+  getPageContent,
 } from "./get-page-content.js";
 import {
-  processDocument,
+  type ListFoldersParams,
+  type ListFoldersResult,
+  listFolders,
+} from "./list-folders.js";
+import {
   type ProcessDocumentParams,
   type ProcessDocumentResult,
+  processDocument,
 } from "./process-document.js";
 import {
-  recentDocuments,
   type RecentDocumentsResult,
+  recentDocuments,
 } from "./recent-documents.js";
 import {
-  removeDocument,
   type RemoveDocumentParams,
   type RemoveDocumentResult,
+  removeDocument,
 } from "./remove-document.js";
 import {
-  uploadDocument,
   type UploadDocumentParams,
   type UploadDocumentResult,
   type UploadPhase,
+  uploadDocument,
 } from "./upload-document.js";
 
 export type { NextSteps } from "./types.js";
@@ -91,7 +91,7 @@ export type {
 } from "./upload-document.js";
 
 export class PageIndexTools {
-  constructor(private transport: McpTransport) { }
+  constructor(private transport: McpTransport) {}
 
   processDocument = (
     params: ProcessDocumentParams,

@@ -1,34 +1,14 @@
-import type { McpTransport } from "../transport.js";
-import type { NextSteps } from "./types.js";
 import { PageIndexError } from "../errors.js";
-import { getSignedUploadUrl } from "./get-signed-upload-url.js";
-import { submitDocument } from "./submit-document.js";
-
-// Browser XMLHttpRequest types (only used when available)
-declare const XMLHttpRequest: {
-  new(): XMLHttpRequestInstance;
-  prototype: XMLHttpRequestInstance;
-} | undefined;
-
-interface XMLHttpRequestInstance {
-  open(method: string, url: string, async?: boolean): void;
-  setRequestHeader(header: string, value: string): void;
-  send(body?: Blob | Uint8Array | null): void;
-  readonly status: number;
-  readonly responseText: string;
-  upload: {
-    onprogress: ((event: ProgressEvent) => void) | null;
-  };
-  onload: ((event: Event) => void) | null;
-  onerror: ((event: Event) => void) | null;
-  ontimeout: ((event: Event) => void) | null;
-}
-
-interface ProgressEvent {
-  lengthComputable: boolean;
-  loaded: number;
-  total: number;
-}
+import type { McpTransport } from "../transport.js";
+import {
+  type GetSignedUploadUrlResult,
+  getSignedUploadUrl,
+} from "./get-signed-upload-url.js";
+import {
+  type SubmitDocumentResult,
+  submitDocument,
+} from "./submit-document.js";
+import type { NextSteps } from "./types.js";
 
 export type UploadPhase = "get_signed_url" | "upload_file" | "submit_document";
 
@@ -36,7 +16,6 @@ export interface UploadDocumentParams {
   fileName: string;
   fileType: string;
   fileContent: Blob | Buffer | ArrayBuffer;
-  onProgress?: (progress: { loaded: number; total: number }) => void;
 }
 
 export interface UploadDocumentResult {
@@ -51,31 +30,19 @@ export interface UploadDocumentResult {
   nextSteps: NextSteps;
 }
 
-/**
- * Creates a PageIndexError with phase information for upload failures.
- */
 function createUploadError(
   message: string,
   phase: UploadPhase,
   originalError?: unknown,
   serverFileName?: string,
 ): PageIndexError {
-  const details: Record<string, unknown> = { phase };
-
-  if (serverFileName) {
-    details.serverFileName = serverFileName;
-  }
-
-  if (originalError instanceof PageIndexError) {
-    details.originalCode = originalError.code;
-    if (originalError.details) {
-      details.originalDetails = originalError.details;
-    }
-  } else if (originalError instanceof Error) {
-    details.originalMessage = originalError.message;
-  }
-
-  return new PageIndexError(message, "INTERNAL_ERROR", details);
+  return new PageIndexError(message, "INTERNAL_ERROR", {
+    phase,
+    ...(serverFileName && { serverFileName }),
+    ...(originalError instanceof Error && {
+      originalMessage: originalError.message,
+    }),
+  });
 }
 
 /**
@@ -93,12 +60,14 @@ export async function uploadDocument(
   transport: McpTransport,
   params: UploadDocumentParams,
 ): Promise<UploadDocumentResult> {
-  const { fileName, fileType, fileContent, onProgress } = params;
+  const { fileName, fileType, fileContent } = params;
 
-  // Step 1: Get signed upload URL
-  let signedUrlResult;
+  let signedUrlResult: GetSignedUploadUrlResult;
   try {
-    signedUrlResult = await getSignedUploadUrl(transport, { fileName, fileType });
+    signedUrlResult = await getSignedUploadUrl(transport, {
+      fileName,
+      fileType,
+    });
   } catch (error) {
     throw createUploadError(
       `Failed to get signed upload URL: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -107,11 +76,15 @@ export async function uploadDocument(
     );
   }
 
-  const { upload_url, file_name: serverFileName, original_name, source_name } = signedUrlResult;
+  const {
+    upload_url,
+    file_name: serverFileName,
+    original_name,
+    source_name,
+  } = signedUrlResult;
 
-  // Step 2: Upload file to signed URL
   try {
-    await uploadToSignedUrl(upload_url, fileContent, fileType, onProgress);
+    await uploadToSignedUrl(upload_url, fileContent, fileType);
   } catch (error) {
     throw createUploadError(
       `Failed to upload file: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -121,10 +94,11 @@ export async function uploadDocument(
     );
   }
 
-  // Step 3: Submit document for processing
-  let submitResult;
+  let submitResult: SubmitDocumentResult;
   try {
-    submitResult = await submitDocument(transport, { fileName: serverFileName });
+    submitResult = await submitDocument(transport, {
+      fileName: serverFileName,
+    });
   } catch (error) {
     throw createUploadError(
       `Failed to submit document: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -147,32 +121,18 @@ export async function uploadDocument(
   };
 }
 
-/**
- * Uploads file content to a signed URL using fetch.
- * Supports progress tracking via XMLHttpRequest in browser environments.
- */
 async function uploadToSignedUrl(
   uploadUrl: string,
   fileContent: Blob | Buffer | ArrayBuffer,
   contentType: string,
-  onProgress?: (progress: { loaded: number; total: number }) => void,
 ): Promise<void> {
-  // Convert content to appropriate format
-  const body = fileContent instanceof ArrayBuffer
-    ? new Uint8Array(fileContent)
-    : fileContent;
+  const body =
+    fileContent instanceof ArrayBuffer
+      ? new Uint8Array(fileContent)
+      : fileContent;
 
-  const contentLength = body instanceof Blob
-    ? body.size
-    : body.byteLength;
+  const contentLength = body instanceof Blob ? body.size : body.byteLength;
 
-  // If progress callback is provided and XMLHttpRequest is available (browser),
-  // use XHR for progress tracking
-  if (onProgress && typeof XMLHttpRequest !== "undefined") {
-    return uploadWithXhr(uploadUrl, body, contentType, contentLength, onProgress);
-  }
-
-  // Otherwise use fetch (no progress tracking in Node.js)
   const response = await fetch(uploadUrl, {
     method: "PUT",
     headers: {
@@ -184,51 +144,8 @@ async function uploadToSignedUrl(
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => "Unknown error");
-    throw new Error(`Upload failed with status ${response.status}: ${errorText}`);
+    throw new Error(
+      `Upload failed with status ${response.status}: ${errorText}`,
+    );
   }
-}
-
-/**
- * Uploads using XMLHttpRequest for progress tracking (browser only).
- * This function is only called when XMLHttpRequest is available.
- */
-function uploadWithXhr(
-  uploadUrl: string,
-  body: Blob | Uint8Array,
-  contentType: string,
-  contentLength: number,
-  onProgress: (progress: { loaded: number; total: number }) => void,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    // XMLHttpRequest is guaranteed to exist when this function is called
-    const xhr = new (XMLHttpRequest as NonNullable<typeof XMLHttpRequest>)();
-    xhr.open("PUT", uploadUrl, true);
-    xhr.setRequestHeader("Content-Type", contentType);
-
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        onProgress({ loaded: event.loaded, total: event.total });
-      } else {
-        onProgress({ loaded: event.loaded, total: contentLength });
-      }
-    };
-
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve();
-      } else {
-        reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.responseText}`));
-      }
-    };
-
-    xhr.onerror = () => {
-      reject(new Error("Network error during upload"));
-    };
-
-    xhr.ontimeout = () => {
-      reject(new Error("Upload timed out"));
-    };
-
-    xhr.send(body);
-  });
 }
