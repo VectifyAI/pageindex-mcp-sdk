@@ -40,18 +40,14 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   };
 
   const isValid =
-    !!formData.anthropicApiKey &&
-    !!formData.pageindexApiUrl &&
-    !!formData.pageindexApiKey;
+    !!formData.anthropicApiKey && !!formData.pageindexApiUrl && !!formData.pageindexApiKey;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
-          <DialogDescription>
-            Configure your API keys to use this application.
-          </DialogDescription>
+          <DialogDescription>Configure your API keys to use this chat demo.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
@@ -64,9 +60,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               type="password"
               placeholder="sk-ant-..."
               value={formData.anthropicApiKey}
-              onChange={(e) =>
-                setFormData({ ...formData, anthropicApiKey: e.target.value })
-              }
+              onChange={(e) => setFormData({ ...formData, anthropicApiKey: e.target.value })}
             />
           </div>
 
@@ -79,9 +73,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               type="url"
               placeholder="https://chat.pageindex.ai"
               value={formData.pageindexApiUrl}
-              onChange={(e) =>
-                setFormData({ ...formData, pageindexApiUrl: e.target.value })
-              }
+              onChange={(e) => setFormData({ ...formData, pageindexApiUrl: e.target.value })}
             />
           </div>
 
@@ -92,11 +84,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             <Input
               id="pageindex-api-key"
               type="password"
-              placeholder="pi_..."
               value={formData.pageindexApiKey}
-              onChange={(e) =>
-                setFormData({ ...formData, pageindexApiKey: e.target.value })
-              }
+              onChange={(e) => setFormData({ ...formData, pageindexApiKey: e.target.value })}
             />
           </div>
         </div>

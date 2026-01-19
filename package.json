@@ -42,12 +42,24 @@
     "typescript": "^5.7.3",
     "vitest": "^2.1.8"
   },
+  "author": "VectifyAI",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/VectifyAI/pageindex-mcp-sdk.git"
+  },
+  "homepage": "https://github.com/VectifyAI/pageindex-mcp-sdk#readme",
+  "bugs": {
+    "url": "https://github.com/VectifyAI/pageindex-mcp-sdk/issues"
+  },
   "keywords": [
     "pageindex",
     "mcp",
+    "model-context-protocol",
     "document",
     "pdf",
-    "ai"
+    "ai",
+    "llm",
+    "sdk"
   ],
   "license": "MIT",
   "engines": {

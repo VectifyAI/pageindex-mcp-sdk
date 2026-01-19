@@ -1,0 +1,51 @@
+# Source code (compiled to dist/)
+src/
+
+# Examples and demos
+examples/
+
+# Configuration files
+biome.json
+tsconfig.json
+tsdown.config.ts
+vitest.config.ts
+vercel.json
+pnpm-workspace.yaml
+
+# Lock files
+pnpm-lock.yaml
+
+# Test coverage
+coverage/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Vercel
+.vercel/
+
+# Git
+.git/
+.gitignore
