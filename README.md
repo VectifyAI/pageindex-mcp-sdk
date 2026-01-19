@@ -40,7 +40,6 @@ await client.close();
 const client = new PageIndexClient({ apiUrl, apiKey, folderScope? });
 
 await client.connect();
-await client.close();
 await client.setFolderScope(folderId);
 ```
 
