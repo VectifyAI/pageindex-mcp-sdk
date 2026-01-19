@@ -112,7 +112,7 @@ export function SettingsButton({ onClick }: SettingsButtonProps) {
     <button
       type="button"
       onClick={onClick}
-      className="shrink-0 rounded-full border border-border p-1 hover:bg-muted"
+      className="shrink-0 rounded-full border border-border p-1.5 hover:bg-muted"
       aria-label="Settings"
     >
       <SettingsIcon className="size-4" />
