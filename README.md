@@ -50,13 +50,12 @@ All methods via `client.tools`:
 | Method | Description |
 |--------|-------------|
 | `processDocument({ url })` | Upload and process document from URL |
+| `uploadDocument({ fileName, fileType, fileContent, onProgress? })` | Upload file and process |
 | `recentDocuments()` | List recent uploads |
-| `findRelevantDocuments({ nameOrDescriptionFilter?, folderId?, limit? })` | Search documents |
+| `findRelevantDocuments({ nameOrDescriptionFilter?, limit? })` | Search documents |
 | `getDocument({ docName, waitForCompletion? })` | Get document details |
 | `getDocumentStructure({ docName, part?, waitForCompletion? })` | Extract document outline |
 | `getPageContent({ docName, pages, waitForCompletion? })` | Extract page content |
-| `getSignedUploadUrl({ fileName, fileType })` | Get upload URL |
-| `submitDocument({ fileName })` | Submit uploaded file |
 | `removeDocument({ docNames })` | Delete documents |
 | `createFolder({ name, description?, parentFolderId? })` | Create folder |
 | `listFolders({ parentFolderId? })` | List folders |

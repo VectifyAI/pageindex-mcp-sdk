@@ -3,7 +3,6 @@ import type { NextSteps } from "./types.js";
 
 export interface FindRelevantDocumentsParams {
   nameOrDescriptionFilter?: string;
-  folderId?: string | null;
   cursor?: string;
   limit?: number;
 }
@@ -33,7 +32,6 @@ export async function findRelevantDocuments(
     "find_relevant_documents",
     {
       name_or_description_filter: params?.nameOrDescriptionFilter,
-      folder_id: params?.folderId,
       cursor: params?.cursor,
       limit: params?.limit,
     },

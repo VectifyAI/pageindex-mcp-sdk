@@ -30,11 +30,6 @@ import {
   type GetPageContentResult,
 } from "./get-page-content.js";
 import {
-  getSignedUploadUrl,
-  type GetSignedUploadUrlParams,
-  type GetSignedUploadUrlResult,
-} from "./get-signed-upload-url.js";
-import {
   processDocument,
   type ProcessDocumentParams,
   type ProcessDocumentResult,
@@ -49,10 +44,11 @@ import {
   type RemoveDocumentResult,
 } from "./remove-document.js";
 import {
-  submitDocument,
-  type SubmitDocumentParams,
-  type SubmitDocumentResult,
-} from "./submit-document.js";
+  uploadDocument,
+  type UploadDocumentParams,
+  type UploadDocumentResult,
+  type UploadPhase,
+} from "./upload-document.js";
 
 export type { NextSteps } from "./types.js";
 export type {
@@ -89,13 +85,10 @@ export type {
   RemoveDocumentResult,
 } from "./remove-document.js";
 export type {
-  GetSignedUploadUrlParams,
-  GetSignedUploadUrlResult,
-} from "./get-signed-upload-url.js";
-export type {
-  SubmitDocumentParams,
-  SubmitDocumentResult,
-} from "./submit-document.js";
+  UploadDocumentParams,
+  UploadDocumentResult,
+  UploadPhase,
+} from "./upload-document.js";
 
 export class PageIndexTools {
   constructor(private transport: McpTransport) { }
@@ -134,12 +127,7 @@ export class PageIndexTools {
     params: RemoveDocumentParams,
   ): Promise<RemoveDocumentResult> => removeDocument(this.transport, params);
 
-  getSignedUploadUrl = (
-    params: GetSignedUploadUrlParams,
-  ): Promise<GetSignedUploadUrlResult> =>
-    getSignedUploadUrl(this.transport, params);
-
-  submitDocument = (
-    params: SubmitDocumentParams,
-  ): Promise<SubmitDocumentResult> => submitDocument(this.transport, params);
+  uploadDocument = (
+    params: UploadDocumentParams,
+  ): Promise<UploadDocumentResult> => uploadDocument(this.transport, params);
 }

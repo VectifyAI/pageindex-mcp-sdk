@@ -183,32 +183,18 @@ function ChatContent() {
   const handleFileUpload = async (file: File) => {
     setIsUploading(true);
     try {
-      const headers = getHeaders();
-      const uploadUrlRes = await fetch(
-        `/api/upload?fileName=${encodeURIComponent(file.name)}&fileType=${encodeURIComponent(file.type)}`,
-        { headers },
-      );
-      if (!uploadUrlRes.ok) {
-        throw new Error('Failed to get upload URL');
-      }
-      const { uploadUrl, fileName } = await uploadUrlRes.json();
+      const formData = new FormData();
+      formData.append('file', file);
 
-      const uploadRes = await fetch(uploadUrl, {
-        method: 'PUT',
-        body: file,
-        headers: { 'Content-Type': file.type },
-      });
-      if (!uploadRes.ok) {
-        throw new Error('Failed to upload file');
-      }
-
-      const submitRes = await fetch('/api/upload', {
+      const res = await fetch('/api/upload', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...headers },
-        body: JSON.stringify({ fileName }),
+        headers: getHeaders(),
+        body: formData,
       });
-      if (!submitRes.ok) {
-        throw new Error('Failed to submit document');
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to upload document');
       }
 
       await fetchDocuments();

@@ -19,7 +19,16 @@ function getClient(req: Request) {
 
 function handleError(error: unknown, defaultMessage: string) {
   if (error instanceof PageIndexError) {
-    return NextResponse.json({ error: error.message, code: error.code }, { status: 500 });
+    const details = error.details as { phase?: string; serverFileName?: string } | undefined;
+    return NextResponse.json(
+      {
+        error: error.message,
+        code: error.code,
+        phase: details?.phase,
+        serverFileName: details?.serverFileName,
+      },
+      { status: 500 },
+    );
   }
   if (error instanceof Error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -27,56 +36,36 @@ function handleError(error: unknown, defaultMessage: string) {
   return NextResponse.json({ error: defaultMessage }, { status: 500 });
 }
 
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const fileName = searchParams.get('fileName');
-  const fileType = searchParams.get('fileType');
-
-  if (!fileName || !fileType) {
-    return NextResponse.json({ error: 'fileName and fileType are required' }, { status: 400 });
-  }
-
-  try {
-    const client = getClient(req);
-    await client.connect();
-
-    const result = await client.tools.getSignedUploadUrl({
-      fileName,
-      fileType,
-    });
-
-    return NextResponse.json({
-      uploadUrl: result.upload_url,
-      fileName: result.file_name,
-      originalName: result.original_name,
-    });
-  } catch (error) {
-    console.error('Failed to get signed upload URL:', error);
-    return handleError(error, 'Failed to get upload URL');
-  }
-}
-
 export async function POST(req: Request) {
   try {
-    const { fileName } = await req.json();
+    const formData = await req.formData();
+    const file = formData.get('file') as File | null;
 
-    if (!fileName) {
-      return NextResponse.json({ error: 'fileName is required' }, { status: 400 });
+    if (!file) {
+      return NextResponse.json({ error: 'file is required' }, { status: 400 });
     }
 
     const client = getClient(req);
     await client.connect();
 
-    const result = await client.tools.submitDocument({ fileName });
+    const fileBuffer = Buffer.from(await file.arrayBuffer());
+
+    const result = await client.tools.uploadDocument({
+      fileName: file.name,
+      fileType: file.type || 'application/octet-stream',
+      fileContent: fileBuffer,
+    });
 
     return NextResponse.json({
-      docName: result.doc_name,
+      serverFileName: result.serverFileName,
+      originalName: result.originalName,
+      docName: result.docName,
       status: result.status,
-      submittedAt: result.submitted_at,
-      estimatedCompletion: result.estimated_completion,
+      submittedAt: result.submittedAt,
+      estimatedCompletion: result.estimatedCompletion,
     });
   } catch (error) {
-    console.error('Failed to submit document:', error);
-    return handleError(error, 'Failed to submit document');
+    console.error('Failed to upload document:', error);
+    return handleError(error, 'Failed to upload document');
   }
 }
