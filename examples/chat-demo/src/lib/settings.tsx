@@ -4,11 +4,22 @@ import { createContext, useContext, useState, useEffect, useCallback, type React
 
 const STORAGE_KEY = 'pageindex-chat-settings';
 
+export type Provider = 'anthropic' | 'openrouter';
+
 export interface Settings {
-  anthropicApiKey: string;
   pageindexApiUrl: string;
   pageindexApiKey: string;
   folderScope?: string;
+
+  provider: Provider;
+
+  // Anthropic config
+  anthropicApiKey: string;
+  anthropicModel: string;
+
+  // OpenRouter config
+  openrouterApiKey: string;
+  openrouterModel: string;
 }
 
 interface SettingsContextValue {
@@ -20,9 +31,13 @@ interface SettingsContextValue {
 }
 
 const defaultSettings: Settings = {
-  anthropicApiKey: '',
   pageindexApiUrl: 'https://chat.pageindex.ai',
   pageindexApiKey: '',
+  provider: 'anthropic',
+  anthropicApiKey: '',
+  anthropicModel: 'claude-sonnet-4-5-20250929',
+  openrouterApiKey: '',
+  openrouterModel: 'anthropic/claude-opus-4.5',
 };
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
@@ -56,16 +71,35 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const isProviderConfigured =
+    settings.provider === 'anthropic'
+      ? !!settings.anthropicApiKey
+      : !!settings.openrouterApiKey;
+
   const isConfigured =
-    !!settings.anthropicApiKey &&
-    !!settings.pageindexApiUrl &&
-    !!settings.pageindexApiKey;
+    isProviderConfigured && !!settings.pageindexApiUrl && !!settings.pageindexApiKey;
 
   const getHeaders = useCallback(() => {
     const headers: Record<string, string> = {};
-    if (settings.anthropicApiKey) {
-      headers['x-anthropic-api-key'] = settings.anthropicApiKey;
+
+    headers['x-provider'] = settings.provider;
+
+    if (settings.provider === 'anthropic') {
+      if (settings.anthropicApiKey) {
+        headers['x-anthropic-api-key'] = settings.anthropicApiKey;
+      }
+      if (settings.anthropicModel) {
+        headers['x-anthropic-model'] = settings.anthropicModel;
+      }
+    } else {
+      if (settings.openrouterApiKey) {
+        headers['x-openrouter-api-key'] = settings.openrouterApiKey;
+      }
+      if (settings.openrouterModel) {
+        headers['x-openrouter-model'] = settings.openrouterModel;
+      }
     }
+
     if (settings.pageindexApiUrl) {
       headers['x-pageindex-api-url'] = settings.pageindexApiUrl;
     }

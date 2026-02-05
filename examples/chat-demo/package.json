@@ -11,6 +11,7 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.15",
     "@ai-sdk/react": "^3.0.40",
+    "@openrouter/ai-sdk-provider": "^2.1.1",
     "@pageindex/mcp-sdk": "link:../..",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-dialog": "^1.1.15",

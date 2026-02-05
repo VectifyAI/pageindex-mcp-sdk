@@ -1,5 +1,12 @@
 import { createAnthropic } from '@ai-sdk/anthropic';
-import { streamText, convertToModelMessages, stepCountIs, type UIMessage } from 'ai';
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import {
+  streamText,
+  convertToModelMessages,
+  stepCountIs,
+  type UIMessage,
+  type LanguageModel,
+} from 'ai';
 import { PageIndexClient } from '@pageindex/mcp-sdk';
 import { buildPageIndexTools } from '@/lib/tools';
 import { getConfigFromRequest, validateConfig } from '@/lib/config';
@@ -88,7 +95,15 @@ export async function POST(req: Request) {
   const { messages }: { messages: UIMessage[] } = await req.json();
   const normalizedMessages = messages.map(normalizeMessageFileParts);
 
-  const anthropic = createAnthropic({ apiKey: config.anthropicApiKey });
+  let model: LanguageModel;
+  if (config.provider === 'openrouter') {
+    const openrouter = createOpenRouter({ apiKey: config.openrouterApiKey });
+    model = openrouter(config.openrouterModel);
+  } else {
+    const anthropic = createAnthropic({ apiKey: config.anthropicApiKey });
+    model = anthropic(config.anthropicModel);
+  }
+
   const pageIndexClient = new PageIndexClient({
     apiUrl: config.pageindexApiUrl,
     apiKey: config.pageindexApiKey,
@@ -102,7 +117,7 @@ export async function POST(req: Request) {
   const tools = buildPageIndexTools(pageIndexClient);
 
   const result = streamText({
-    model: anthropic('claude-sonnet-4-20250514'),
+    model,
     messages: await convertToModelMessages(normalizedMessages),
     tools,
     stopWhen: stepCountIs(10),
